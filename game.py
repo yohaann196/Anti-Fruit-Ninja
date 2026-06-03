@@ -951,7 +951,7 @@ while True:
         pygame.display.update()
         continue
 
-    if game.sins >= 100 and not game.shame_ending:
+    if game.sins >= 100 and not game.shame_ending and not game.letter_shown:
         still_flying = any(not f["hit"] and f["y"] <= HEIGHT for f in game.fruits)
         if not still_flying:
             game.shame_ending = True
