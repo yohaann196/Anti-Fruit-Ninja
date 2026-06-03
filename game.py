@@ -714,7 +714,7 @@ while True:
             # Ending label and explanation
             label_r = font22.render("ENDING: SHAME (bad ending)", True, tc)
             screen.blit(label_r, (WIDTH // 2 - label_r.get_width() // 2, 40))
-            hint_r = font16.render("how: reach 100 sins — the fruits refuse to spawn", True, tc)
+            hint_r = font16.render("how: reach 100 sins and stop slicing — the fruits go on strike", True, tc)
             screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
 
         elif game.ending_type == "addiction":
@@ -837,8 +837,9 @@ while True:
     if game.mercy_flash_timer > 0:
         game.mercy_flash_timer -= dt
 
-    # Spawn fruits (stop spawning once sins reach 100 so the shame ending can trigger)
-    if game.sins < 100 and random.random() < game.get_spawn_prob():
+    # Spawn fruits (stop spawning at 300 sins so the addiction ending can trigger;
+    # the shame ending at 100 only fires if the player stops slicing and all fruits fall)
+    if game.sins < 300 and random.random() < game.get_spawn_prob():
         spawn_fruit_fn(game)
 
     # Update fruits
