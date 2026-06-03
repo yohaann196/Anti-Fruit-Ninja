@@ -33,10 +33,12 @@ The game has **5 endings**. Each ending screen tells you which ending you got, w
 | 1 | **Forgiveness** | ✅ Best | Let 50 fruits pass without slicing (reach 50 mercy) |
 | 2 | **Peaceful** | ✅ Good | Slice the grey willing fruit that says "i'm ready. please." |
 | 3 | **Existential** | ⚪ Neutral | Slice 3 willing fruits — the game questions why |
-| 4 | **Shame** | ❌ Bad | Reach 100 sins — the fruits go on strike |
+| 4 | **Shame** | ❌ Bad | Reach 100 sins and then stop slicing — the fruits go on strike |
 | 5 | **Addiction** | ❌ Worst | Reach 300 sins — the screen cracks, you can't stop |
 
 There is also a **mid-game event** (not a full ending): at 200 sins, you receive a letter from Brenda Jr., the daughter of a watermelon you sliced. The game continues after the letter.
+
+> **Note:** After 100 sins, fruits keep spawning. If you stop slicing and let all remaining fruits fall, the Shame ending triggers. If you keep slicing, you'll see the Brenda Jr. letter at 200 sins and eventually reach the Addiction ending at 300.
 
 ## Features
 
