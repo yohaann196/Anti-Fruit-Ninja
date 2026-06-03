@@ -1,5 +1,6 @@
 import pygame, sys, os, random, math, json, array
 
+pygame.mixer.pre_init(44100, -16, 1, 512)
 pygame.init()
 
 WIDTH, HEIGHT = 600, 800
@@ -183,6 +184,7 @@ FRUIT_DESCRIPTIONS = {
     "willing": "0 sins - wanted to die",
     "angel": "-20 sins - redemption... wasted",
     "strawberry": "LAWSUIT - you'll hear from their attorney",
+    "documentarian": "DOCUMENTED - footage at 11",
 }
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -208,13 +210,14 @@ def load_save():
         with open(SAVE_FILE, 'r') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"lifetime_sins": 0, "sessions": 0}
+        return {"lifetime_sins": 0, "sessions": 0, "willing_hits": 0}
 
 
-def save_game(sins_earned):
+def save_game(sins_earned, willing_hits=0):
     data = load_save()
     data["lifetime_sins"] = data.get("lifetime_sins", 0) + sins_earned
     data["sessions"] = data.get("sessions", 0) + 1
+    data["willing_hits"] = willing_hits
     with open(SAVE_FILE, 'w') as f:
         json.dump(data, f)
 
@@ -282,16 +285,22 @@ def text_color(bg):
     return (255, 255, 255) if luminance(bg) < 128 else (0, 0, 0)
 
 
+_vignette_cache = {}
+
+
 def draw_vignette(surface, intensity):
     """Draw a subtle vignette overlay that darkens edges based on sin intensity."""
     if intensity <= 0:
         return
     alpha = min(int(intensity * 1.5), 180)
-    vig = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-    for i in range(40):
-        a = int(alpha * (1 - i / 40.0))
-        pygame.draw.rect(vig, (0, 0, 0, a), (i, i, WIDTH - 2 * i, HEIGHT - 2 * i), 3)
-    surface.blit(vig, (0, 0))
+    # Cache vignette by alpha value to avoid recreating every frame
+    if alpha not in _vignette_cache:
+        vig = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        for i in range(40):
+            a = int(alpha * (1 - i / 40.0))
+            pygame.draw.rect(vig, (0, 0, 0, a), (i, i, WIDTH - 2 * i, HEIGHT - 2 * i), 3)
+        _vignette_cache[alpha] = vig
+    surface.blit(_vignette_cache[alpha], (0, 0))
 
 
 # --- Particle system ---
@@ -346,13 +355,11 @@ class Trail:
             r = min(255, 100 + int(sins_val * 1.5))
             g = max(0, 200 - int(sins_val * 2))
             b = max(0, 255 - int(sins_val * 2))
-            color = (r, g, b, alpha)
+            color = (r, g, b)
             width = max(1, int(3 * self.points[i]["life"] / 0.3))
             start = self.points[i - 1]["pos"]
             end = self.points[i]["pos"]
-            s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-            pygame.draw.line(s, color, start, end, width)
-            surface.blit(s, (0, 0))
+            pygame.draw.line(surface, color, start, end, width)
 
 
 # --- Screen shake ---
@@ -597,7 +604,7 @@ class GameState:
         self.combo_label_timer = 0
         self.sliced_names = []
         self.documented = False
-        self.willing_hits = 0
+        self.willing_hits = load_save().get("willing_hits", 0)
         self.mercy_milestones_hit = set()
         self.addiction_ending = False
         self.forgiveness_ending = False
@@ -608,10 +615,17 @@ class GameState:
         self.session_sins = 0
         self.graves = []
         self.captions = []
+        self.shame_cooldown = 0
 
     def get_spawn_prob(self):
-        """Difficulty curve: spawn rate increases with sins."""
-        return BASE_SPAWN_PROB + self.sins * 0.0003
+        """Difficulty curve: spawn rate increases with sins, pauses briefly after 100 for shame check."""
+        if self.shame_cooldown > 0:
+            return 0
+        base = BASE_SPAWN_PROB + self.sins * 0.0003
+        # Reduce spawn rate after 100 sins to give shame ending a chance
+        if self.sins >= 100 and not self.letter_shown:
+            base *= 0.3
+        return base
 
     def get_fruit_speed_mult(self):
         """Fruits get faster as sins rise."""
@@ -628,8 +642,8 @@ while True:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            if game.session_sins > 0:
-                save_game(game.session_sins)
+            if game.session_sins > 0 or game.willing_hits > 0:
+                save_game(game.session_sins, game.willing_hits)
             pygame.quit()
             sys.exit()
         if event.type == pygame.KEYDOWN:
@@ -786,7 +800,7 @@ while True:
         if game.peaceful_timer >= 2.0:
             game.ending_type = "peaceful"
             game.state = "ending"
-            save_game(game.session_sins)
+            save_game(game.session_sins, game.willing_hits)
         pygame.display.update()
         continue
 
@@ -837,6 +851,10 @@ while True:
     if game.mercy_flash_timer > 0:
         game.mercy_flash_timer -= dt
 
+    # Shame cooldown: brief spawn pause when crossing 100 sins
+    if game.shame_cooldown > 0:
+        game.shame_cooldown -= dt
+
     # Spawn fruits (stop spawning at 300 sins so the addiction ending can trigger;
     # the shame ending at 100 only fires if the player stops slicing and all fruits fall)
     if game.sins < 300 and random.random() < game.get_spawn_prob():
@@ -876,7 +894,9 @@ while True:
                 game.combo_timer = 1.0
                 if game.combo_count >= 3:
                     game.combo_label_timer = 1.5
-                    game.sins += game.combo_count - 2
+                    combo_bonus = game.combo_count - 2
+                    game.sins += combo_bonus
+                    game.session_sins += combo_bonus
                     SFX_COMBO.play()
 
                 # Particles
@@ -893,7 +913,7 @@ while True:
                     if game.willing_hits >= 3:
                         game.ending_type = "existential"
                         game.state = "ending"
-                        save_game(game.session_sins)
+                        save_game(game.session_sins, game.willing_hits)
                     else:
                         game.peaceful = True
                         game.peaceful_timer = 0
@@ -912,15 +932,21 @@ while True:
                     game.ticker_text = "BREAKING: Local Player Identified. Footage at 11."
                     game.ticker_timer = 6.0
                 else:
+                    prev_sins = game.sins
                     game.sins += f["sin_val"]
                     game.session_sins += f["sin_val"]
                     game.sin_shake_timer = 0.3
+                    # Trigger shame cooldown when crossing 100 sins
+                    if prev_sins < 100 <= game.sins:
+                        game.shame_cooldown = 3.0
                     if f["name"] and f["name"] not in game.sliced_names:
                         game.sliced_names.append(f["name"])
                     game.floaters.append({"text": random.choice(LAST_WORDS), "x": f["x"], "y": f["y"], "t": 0})
-                    # Add a grave for this fruit
+                    # Add a grave for this fruit (cap at 20)
                     grave_x = random.randint(30, WIDTH - 70)
                     game.graves.append({"x": grave_x, "name": f["name"], "kind": f["kind"]})
+                    if len(game.graves) > 20:
+                        game.graves.pop(0)
                     if game.sins >= 200 and not game.letter_shown:
                         game.letter_shown = True
                         game.letter_timer = 15.0
@@ -939,7 +965,7 @@ while True:
         game.addiction_ending = True
         game.ending_type = "addiction"
         game.state = "ending"
-        save_game(game.session_sins)
+        save_game(game.session_sins, game.willing_hits)
         pygame.display.update()
         continue
 
@@ -947,7 +973,7 @@ while True:
         game.forgiveness_ending = True
         game.ending_type = "forgiveness"
         game.state = "ending"
-        save_game(game.session_sins)
+        save_game(game.session_sins, game.willing_hits)
         pygame.display.update()
         continue
 
@@ -957,7 +983,7 @@ while True:
             game.shame_ending = True
             game.ending_type = "shame"
             game.state = "ending"
-            save_game(game.session_sins)
+            save_game(game.session_sins, game.willing_hits)
             pygame.display.update()
             continue
 
