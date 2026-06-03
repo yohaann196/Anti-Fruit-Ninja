@@ -435,11 +435,11 @@ def spawn_fruit_fn(g):
         return
     r = random.random()
     lawyer_chance = 1 / 300 if not g.documented else 1 / 100
-    if r < 1 / 200:
+    if r < 1 / 60:
         g.fruits.append(make_willing(g))
-    elif r < 1 / 200 + lawyer_chance:
+    elif r < 1 / 60 + lawyer_chance:
         g.fruits.append(make_lawyer(g))
-    elif r < 1 / 200 + lawyer_chance + 1 / 400:
+    elif r < 1 / 60 + lawyer_chance + 1 / 400:
         g.fruits.append(make_documentarian(g))
     else:
         info = random.choice(ROSTER)
@@ -624,7 +624,7 @@ class GameState:
         base = BASE_SPAWN_PROB + self.sins * 0.0003
         # Reduce spawn rate after 100 sins to give shame ending a chance
         if self.sins >= 100 and not self.letter_shown:
-            base *= 0.3
+            base *= 0.6
         return base
 
     def get_fruit_speed_mult(self):
@@ -722,7 +722,6 @@ while True:
             screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
 
         elif game.ending_type == "shame":
-            draw_witnesses_fn(screen, bg, game)
             r = font40.render("they're on strike.", True, tc)
             screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 2 - 20))
             # Ending label and explanation
