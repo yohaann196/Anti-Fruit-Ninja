@@ -31,14 +31,14 @@ The game has **5 endings**. Each ending screen tells you which ending you got, w
 | # | Ending | Type | How to get it |
 |---|--------|------|---------------|
 | 1 | **Forgiveness** | ✅ Best | Let 50 fruits pass without slicing (reach 50 mercy) |
-| 2 | **Peaceful** | ✅ Good | Slice the grey willing fruit that says "i'm ready. please." |
-| 3 | **Existential** | ⚪ Neutral | Slice 3 willing fruits — the game questions why |
-| 4 | **Shame** | ❌ Bad | Reach 100 sins and then stop slicing — the fruits go on strike |
-| 5 | **Addiction** | ❌ Worst | Reach 300 sins — the screen cracks, you can't stop |
+| 2 | **Peaceful** | ✨ Divine | Slice GOD — a 1-in-300 rainbow fruit with halo, wings, and staff |
+| 3 | **Redemption** | ✅ Good | Reach 100 sins, then pause for 5 seconds in remorse |
+| 4 | **Bloodlust** | ❌ Bad | Slice 50 fruits in a row at 100+ sins without missing |
+| 5 | **Extinction** | ❌ Worst | Reach 300 sins — every fruit dies, the world ends |
 
 There is also a **mid-game event** (not a full ending): at 200 sins, you receive a letter from Brenda Jr., the daughter of a watermelon you sliced. The game continues after the letter.
 
-> **Note:** After 100 sins, fruits keep spawning. If you stop slicing and let all remaining fruits fall, the Shame ending triggers. If you keep slicing, you'll see the Brenda Jr. letter at 200 sins and eventually reach the Addiction ending at 300.
+> **Note:** After 100 sins, you face a choice. Pause for 5 seconds to receive Redemption. Slice 50 in a row without letting any fruit fall to trigger Bloodlust. Keep slicing past 200 to receive Brenda Jr.'s letter, and eventually Extinction at 300.
 
 ## Features
 

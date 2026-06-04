@@ -170,6 +170,7 @@ FRUIT_COLORS = {
     "kiwi": (120, 80, 40),
     "grapes": (100, 0, 150),
     "strawberry": (200, 30, 30),
+    "god": (255, 235, 100),
 }
 
 FRUIT_DESCRIPTIONS = {
@@ -181,7 +182,7 @@ FRUIT_DESCRIPTIONS = {
     "plum": "+3 sins - was turning his life around",
     "kiwi": "+2 sins - a father figure",
     "grapes": "+5 sins - an entire family",
-    "willing": "0 sins - wanted to die",
+    "god": "GOD - grants you a peaceful death",
     "angel": "-20 sins - redemption... wasted",
     "strawberry": "LAWSUIT - you'll hear from their attorney",
     "documentarian": "DOCUMENTED - footage at 11",
@@ -210,14 +211,13 @@ def load_save():
         with open(SAVE_FILE, 'r') as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"lifetime_sins": 0, "sessions": 0, "willing_hits": 0}
+        return {"lifetime_sins": 0, "sessions": 0}
 
 
-def save_game(sins_earned, willing_hits=0):
+def save_game(sins_earned):
     data = load_save()
     data["lifetime_sins"] = data.get("lifetime_sins", 0) + sins_earned
     data["sessions"] = data.get("sessions", 0) + 1
-    data["willing_hits"] = willing_hits
     with open(SAVE_FILE, 'w') as f:
         json.dump(data, f)
 
@@ -383,48 +383,6 @@ class ScreenShake:
         return (0, 0)
 
 
-# --- Mercy reward effects ---
-class MercyReward:
-    def __init__(self, reward_type, x, y):
-        self.type = reward_type
-        self.x = x
-        self.y = y
-        self.life = 3.0
-        self.particles = []
-        if reward_type == "flower":
-            for _ in range(5):
-                self.particles.append({
-                    "x": x + random.randint(-50, 50),
-                    "y": y + random.randint(-30, 30),
-                    "size": random.randint(5, 12),
-                    "color": random.choice([(255, 150, 200), (255, 200, 100), (200, 100, 255), (100, 255, 150)])
-                })
-
-    def update(self, dt):
-        self.life -= dt
-
-    def draw(self, surface):
-        if self.life <= 0:
-            return
-        alpha = min(255, int(255 * self.life / 3.0))
-        if self.type == "flower":
-            for p in self.particles:
-                s = pygame.Surface((p["size"] * 2, p["size"] * 2), pygame.SRCALPHA)
-                pygame.draw.circle(s, (*p["color"], alpha), (p["size"], p["size"]), p["size"])
-                surface.blit(s, (int(p["x"]) - p["size"], int(p["y"]) - p["size"]))
-        elif self.type == "rainbow":
-            colors = [(255, 0, 0), (255, 127, 0), (255, 255, 0), (0, 255, 0), (0, 0, 255), (75, 0, 130)]
-            for i, c in enumerate(colors):
-                rect = (50, 100 + i * 8, WIDTH - 100, 200)
-                s = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                pygame.draw.arc(s, (*c, alpha), rect, 0, math.pi, 4)
-                surface.blit(s, (0, 0))
-        elif self.type == "thank_you":
-            s = font28.render("a fruit thanks you from afar", True, (0, 180, 0))
-            s.set_alpha(alpha)
-            surface.blit(s, (WIDTH // 2 - s.get_width() // 2, int(self.y)))
-
-
 # --- Game helper functions ---
 def spawn_fruit_fn(g):
     if len(g.fruits) >= MAX_ACTIVE:
@@ -435,11 +393,11 @@ def spawn_fruit_fn(g):
         return
     r = random.random()
     lawyer_chance = 1 / 300 if not g.documented else 1 / 100
-    if r < 1 / 60:
-        g.fruits.append(make_willing(g))
-    elif r < 1 / 60 + lawyer_chance:
+    if r < 1 / 300:
+        g.fruits.append(make_god(g))
+    elif r < 1 / 300 + lawyer_chance:
         g.fruits.append(make_lawyer(g))
-    elif r < 1 / 60 + lawyer_chance + 1 / 400:
+    elif r < 1 / 300 + lawyer_chance + 1 / 400:
         g.fruits.append(make_documentarian(g))
     else:
         info = random.choice(ROSTER)
@@ -461,12 +419,12 @@ def make_normal(g, info):
     }
 
 
-def make_willing(g):
+def make_god(g):
     return {
-        "name": "", "kind": "willing", "plea": "i'm ready. please.",
-        "sin_val": 0, "x": random.randint(80, WIDTH - 140), "y": HEIGHT,
-        "vx": random.randint(-50, 50), "vy": random.randint(-500, -400),
-        "hit": False, "special": "willing", "speaks": True, "extra_plea": None,
+        "name": "GOD", "kind": "god", "plea": "i have granted you a peaceful death.",
+        "sin_val": 0, "x": random.randint(120, WIDTH - 180), "y": HEIGHT,
+        "vx": random.randint(-40, 40), "vy": random.randint(-700, -600),
+        "hit": False, "special": "god", "speaks": True, "extra_plea": None,
     }
 
 
@@ -498,10 +456,45 @@ def make_documentarian(g):
     }
 
 
+def draw_god_fn(surf, x, y):
+    t = pygame.time.get_ticks() / 100.0
+    cx, cy = x + 30, y + 40
+    # Rainbow glow halo
+    glow_surf = pygame.Surface((180, 180), pygame.SRCALPHA)
+    for r in range(85, 40, -5):
+        hue = (t + r) % 360
+        color = pygame.Color(0)
+        color.hsva = (hue, 100, 100, 100)
+        pygame.draw.circle(glow_surf, (color.r, color.g, color.b, 25), (90, 90), r)
+    surf.blit(glow_surf, (cx - 90, cy - 90))
+    # Wings (large, white, feathered)
+    pygame.draw.ellipse(surf, (255, 255, 255), (x - 40, y + 10, 50, 70))
+    pygame.draw.ellipse(surf, (255, 255, 255), (x + 50, y + 10, 50, 70))
+    pygame.draw.ellipse(surf, (220, 220, 255), (x - 32, y + 18, 36, 54))
+    pygame.draw.ellipse(surf, (220, 220, 255), (x + 56, y + 18, 36, 54))
+    # Staff (golden, vertical, curled top)
+    staff_x = x + 78
+    pygame.draw.line(surf, (218, 165, 32), (staff_x, y + 10), (staff_x, y + 90), 4)
+    pygame.draw.arc(surf, (218, 165, 32), (staff_x - 12, y - 4, 18, 24), 0, math.pi, 4)
+    # Body (large bright circle, rainbow border)
+    pygame.draw.circle(surf, (255, 255, 255), (cx, cy), 38)
+    border_hue = (t * 2) % 360
+    border_color = pygame.Color(0)
+    border_color.hsva = (border_hue, 100, 100, 100)
+    pygame.draw.circle(surf, (border_color.r, border_color.g, border_color.b), (cx, cy), 38, 3)
+    # Halo (golden ring above)
+    pygame.draw.ellipse(surf, (255, 215, 0), (cx - 28, y - 6, 56, 18), 4)
+    pygame.draw.ellipse(surf, (255, 235, 100), (cx - 24, y - 2, 48, 12), 2)
+    # Serene face
+    pygame.draw.line(surf, (60, 60, 60), (cx - 10, cy - 4), (cx - 4, cy - 4), 2)
+    pygame.draw.line(surf, (60, 60, 60), (cx + 4, cy - 4), (cx + 10, cy - 4), 2)
+    pygame.draw.arc(surf, (60, 60, 60), (cx - 8, cy, 16, 10), math.pi, 2 * math.pi, 2)
+
+
 def draw_fruit_fn(surf, f):
     x, y = int(f["x"]), int(f["y"])
-    if f["special"] == "willing":
-        pygame.draw.circle(surf, (150, 150, 150), (x + 30, y + 30), 25)
+    if f["special"] == "god":
+        draw_god_fn(surf, x, y)
     elif f["special"] == "angel":
         # Yellow glow
         glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
@@ -532,22 +525,6 @@ def draw_fruit_fn(surf, f):
         pygame.draw.rect(surf, (0, 0, 0), (x + 20, y - 5, 20, 12))
 
 
-def draw_buddha_fn(surf, bg, g):
-    if g.buddha_gone or g.buddha_state == 0:
-        return
-    bx, by = int(g.buddha_x), HEIGHT - 55
-    tc = text_color(bg)
-    if g.buddha_state >= 2:
-        pygame.draw.circle(surf, tc, (bx + 20, by + 8), 8)
-        pygame.draw.polygon(surf, tc, [(bx + 10, by + 16), (bx + 30, by + 16), (bx + 20, by + 40)])
-    else:
-        wobble = int(math.sin(pygame.time.get_ticks() / 200) * 3)
-        pygame.draw.circle(surf, tc, (bx + 20 + wobble, by + 8), 8)
-        pygame.draw.polygon(surf, tc, [(bx + 10, by + 16), (bx + 30, by + 16), (bx + 20, by + 40)])
-        pygame.draw.circle(surf, bg, (bx + 18 + wobble, by + 6), 2)
-        pygame.draw.circle(surf, bg, (bx + 22 + wobble, by + 6), 2)
-
-
 def draw_witnesses_fn(surf, bg, g):
     for i, w in enumerate(g.witnesses):
         wx = 10 + i * 25
@@ -555,17 +532,9 @@ def draw_witnesses_fn(surf, bg, g):
         pygame.draw.ellipse(surf, (60, 60, 60), (wx, wy, 20, 15))
         if g.sins >= 50:
             pygame.draw.circle(surf, (255, 255, 255), (wx + 13, wy + 7), 3)
-        if g.shame_ending:
+        if g.bloodlust_ending:
             if i < len(g.witnesses) - 1:
                 pygame.draw.line(surf, (60, 60, 60), (wx + 20, wy + 7), (wx + 25, wy + 7), 2)
-
-
-def check_mercy_milestones(g):
-    milestones = {5: "flower", 15: "rainbow", 25: "thank_you", 35: "flower", 45: "rainbow"}
-    for m, reward_type in milestones.items():
-        if g.mercy >= m and m not in g.mercy_milestones_hit:
-            g.mercy_milestones_hit.add(m)
-            g.mercy_rewards.append(MercyReward(reward_type, WIDTH // 2, HEIGHT // 2))
 
 
 # --- Game State ---
@@ -582,18 +551,10 @@ class GameState:
         self.floaters = []
         self.lawsuits = []
         self.particles = []
-        self.mercy_rewards = []
         self.ticker_text = ""
         self.ticker_timer = 0
-        self.buddha_state = 0
-        self.buddha_x = WIDTH - 50
-        self.buddha_gone = False
-        self.buddha_walk_timer = 0
         self.witnesses = []
         self.halted = False
-        self.peaceful = False
-        self.peaceful_timer = 0
-        self.shame_ending = False
         self.letter_timer = 0
         self.letter_shown = False
         self.angel_spawned = False
@@ -604,25 +565,23 @@ class GameState:
         self.combo_label_timer = 0
         self.sliced_names = []
         self.documented = False
-        self.willing_hits = load_save().get("willing_hits", 0)
-        self.mercy_milestones_hit = set()
-        self.addiction_ending = False
+        self.time_since_slice = 0.0
+        self.consecutive_slices = 0
+        self.extinction_ending = False
         self.forgiveness_ending = False
-        self.existential_ending = False
+        self.peaceful_ending = False
+        self.redemption_ending = False
+        self.bloodlust_ending = False
         self.ending_type = None
         self.sin_shake_timer = 0
         self.mercy_flash_timer = 0
         self.session_sins = 0
         self.graves = []
         self.captions = []
-        self.shame_cooldown = 0
 
     def get_spawn_prob(self):
-        """Difficulty curve: spawn rate increases with sins, pauses briefly after 100 for shame check."""
-        if self.shame_cooldown > 0:
-            return 0
+        """Difficulty curve: spawn rate increases with sins."""
         base = BASE_SPAWN_PROB + self.sins * 0.0003
-        # Reduce spawn rate after 100 sins to give shame ending a chance
         if self.sins >= 100 and not self.letter_shown:
             base *= 0.6
         return base
@@ -642,8 +601,8 @@ while True:
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            if game.session_sins > 0 or game.willing_hits > 0:
-                save_game(game.session_sins, game.willing_hits)
+            if game.session_sins > 0:
+                save_game(game.session_sins)
             pygame.quit()
             sys.exit()
         if event.type == pygame.KEYDOWN:
@@ -710,40 +669,52 @@ while True:
         screen.fill(bg)
 
         if game.ending_type == "peaceful":
-            screen.fill((255, 255, 255))
-            lines = ["you finally listened.", "the violence ends here."]
+            screen.fill((255, 250, 230))
+            draw_god_fn(screen, WIDTH // 2 - 30, HEIGHT // 3 - 40)
+            lines = ["\"i have granted you", "a peaceful death.\""]
             for i, line in enumerate(lines):
-                r = font40.render(line, True, (0, 0, 0))
-                screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 2 - 60 + i * 50))
-            # Ending label and explanation
-            label_r = font22.render("ENDING: PEACEFUL (good ending)", True, (0, 120, 0))
+                r = font40.render(line, True, (60, 40, 0))
+                screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 2 + i * 50))
+            label_r = font22.render("ENDING: PEACEFUL (divine ending)", True, (160, 100, 0))
             screen.blit(label_r, (WIDTH // 2 - label_r.get_width() // 2, 40))
-            hint_r = font16.render("how: slice the grey willing fruit that says \"i'm ready. please.\"", True, (80, 80, 80))
+            hint_r = font16.render("how: slice GOD — the 1-in-300 rainbow fruit with halo, wings, and staff", True, (80, 60, 0))
             screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
 
-        elif game.ending_type == "shame":
-            r = font40.render("they're on strike.", True, tc)
-            screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 2 - 20))
-            # Ending label and explanation
-            label_r = font22.render("ENDING: SHAME (bad ending)", True, tc)
+        elif game.ending_type == "redemption":
+            screen.fill((230, 240, 255))
+            lines = ["you paused.", "you saw what you had done.", "you stopped."]
+            for i, line in enumerate(lines):
+                r = font40.render(line, True, (30, 60, 120))
+                screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 3 + i * 60))
+            label_r = font22.render("ENDING: REDEMPTION (good ending)", True, (30, 60, 120))
             screen.blit(label_r, (WIDTH // 2 - label_r.get_width() // 2, 40))
-            hint_r = font16.render("how: reach 100 sins and stop slicing — the fruits go on strike", True, tc)
+            hint_r = font16.render("how: reach 100 sins, then pause for 5 seconds in remorse", True, (60, 90, 160))
             screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
 
-        elif game.ending_type == "addiction":
+        elif game.ending_type == "bloodlust":
+            screen.fill((40, 0, 0))
+            r = font40.render("you didn't stop.", True, (255, 50, 50))
+            screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 2 - 40))
+            r2 = font22.render(f"{game.consecutive_slices} in a row. unbroken.", True, (220, 80, 80))
+            screen.blit(r2, (WIDTH // 2 - r2.get_width() // 2, HEIGHT // 2 + 20))
+            label_r = font22.render("ENDING: BLOODLUST (bad ending)", True, (255, 100, 100))
+            screen.blit(label_r, (WIDTH // 2 - label_r.get_width() // 2, 40))
+            hint_r = font16.render("how: slice 50 fruits in a row at 100+ sins without missing", True, (220, 100, 100))
+            screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
+
+        elif game.ending_type == "extinction":
             screen.fill((20, 0, 0))
             crack_lines = [(100, 0, 300, 400), (500, 0, 200, 600), (0, 300, 400, 500),
                            (300, 0, 350, 800), (0, 600, 600, 400)]
             for cl in crack_lines:
                 pygame.draw.line(screen, (80, 0, 0), (cl[0], cl[1]), (cl[2], cl[3]), 2)
-            r = font40.render("you can't stop.", True, (255, 50, 50))
+            r = font40.render("they are all dead.", True, (255, 50, 50))
             screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 2 - 40))
-            r2 = font22.render(f"sins: {game.sins}. and counting.", True, (200, 0, 0))
+            r2 = font22.render(f"sins: {game.sins}. no fruits remain.", True, (200, 0, 0))
             screen.blit(r2, (WIDTH // 2 - r2.get_width() // 2, HEIGHT // 2 + 20))
-            # Ending label and explanation
-            label_r = font22.render("ENDING: ADDICTION (worst ending)", True, (255, 100, 100))
+            label_r = font22.render("ENDING: EXTINCTION (worst ending)", True, (255, 100, 100))
             screen.blit(label_r, (WIDTH // 2 - label_r.get_width() // 2, 40))
-            hint_r = font16.render("how: reach 300 sins — the screen cracks, you are lost", True, (200, 100, 100))
+            hint_r = font16.render("how: reach 300 sins — every fruit dies, the world ends", True, (200, 100, 100))
             screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
 
         elif game.ending_type == "forgiveness":
@@ -758,26 +729,13 @@ while True:
                     fn(screen, fruit_x, fruit_y)
                 wave_r = font16.render("~", True, (0, 100, 0))
                 screen.blit(wave_r, (fruit_x + 25, fruit_y - 15))
-            # Ending label and explanation
             label_r = font22.render("ENDING: FORGIVENESS (best ending)", True, (0, 80, 0))
             screen.blit(label_r, (WIDTH // 2 - label_r.get_width() // 2, 40))
             hint_r = font16.render("how: reach 50 mercy by letting fruits pass without slicing", True, (0, 80, 0))
             screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
 
-        elif game.ending_type == "existential":
-            screen.fill((200, 200, 200))
-            lines = ["they were willing.", "you did it anyway.", "why?"]
-            for i, line in enumerate(lines):
-                r = font40.render(line, True, (60, 60, 60))
-                screen.blit(r, (WIDTH // 2 - r.get_width() // 2, HEIGHT // 3 + i * 60))
-            # Ending label and explanation
-            label_r = font22.render("ENDING: EXISTENTIAL (neutral ending)", True, (60, 60, 60))
-            screen.blit(label_r, (WIDTH // 2 - label_r.get_width() // 2, 40))
-            hint_r = font16.render("how: slice 3 willing fruits — the game questions your choices", True, (100, 100, 100))
-            screen.blit(hint_r, (WIDTH // 2 - hint_r.get_width() // 2, 70))
-
         # Restart prompt
-        end_tc = tc if game.ending_type not in ("peaceful", "forgiveness", "existential") else (0, 0, 0)
+        end_tc = tc if game.ending_type not in ("peaceful", "forgiveness", "redemption") else (0, 0, 0)
         restart_r = font22.render("press R to restart", True, end_tc)
         screen.blit(restart_r, (WIDTH // 2 - restart_r.get_width() // 2, HEIGHT - 60))
 
@@ -788,25 +746,12 @@ while True:
     bg = lerp_color(game.sins)
     tc = text_color(bg)
 
-    # Peaceful transition
-    if game.peaceful:
-        game.peaceful_timer += dt
-        t = min(game.peaceful_timer / 2.0, 1.0)
-        bg = tuple(int(bg[i] + (255 - bg[i]) * t) for i in range(3))
-        screen.fill(bg)
-        for f in game.fruits:
-            draw_fruit_fn(screen, f)
-        if game.peaceful_timer >= 2.0:
-            game.ending_type = "peaceful"
-            game.state = "ending"
-            save_game(game.session_sins, game.willing_hits)
-        pygame.display.update()
-        continue
-
     # Letter interlude
     if game.letter_timer > 0:
         game.letter_timer -= dt
         screen.fill(bg)
+        ticker_r = font22.render("BREAKING: 200 sins reached. letter delivered from brenda jr.", True, (255, 0, 0))
+        screen.blit(ticker_r, (WIDTH // 2 - ticker_r.get_width() // 2, 5))
         letter = [
             "dear player,", "",
             "my mother brenda was a watermelon.",
@@ -850,12 +795,10 @@ while True:
     if game.mercy_flash_timer > 0:
         game.mercy_flash_timer -= dt
 
-    # Shame cooldown: brief spawn pause when crossing 100 sins
-    if game.shame_cooldown > 0:
-        game.shame_cooldown -= dt
+    # Remorse timer: counts time since last slice (drives redemption ending after 100 sins)
+    game.time_since_slice += dt
 
-    # Spawn fruits (stop spawning at 300 sins so the addiction ending can trigger;
-    # the shame ending at 100 only fires if the player stops slicing and all fruits fall)
+    # Spawn fruits (stop spawning at 300 sins so the extinction ending can trigger)
     if game.sins < 300 and random.random() < game.get_spawn_prob():
         spawn_fruit_fn(game)
 
@@ -874,7 +817,8 @@ while True:
                 if f["special"] == "angel":
                     game.mercy += 5
                     game.angel_spawned = False
-                check_mercy_milestones(game)
+                if game.sins >= 100:
+                    game.consecutive_slices = 0
             continue
 
         if not f["hit"]:
@@ -884,6 +828,7 @@ while True:
             dist = math.sqrt((mouse[0] - fx_center) ** 2 + (mouse[1] - fy_center) ** 2)
             if dist < 30:
                 f["hit"] = True
+                game.time_since_slice = 0.0
                 # Sound effects
                 SFX_SLICE.play()
                 SFX_SPLAT.play()
@@ -907,15 +852,14 @@ while True:
                 shake_intensity = 3 if f["kind"] != "grapes" else 8
                 game.shake.trigger(shake_intensity, 0.15)
 
-                if f["special"] == "willing":
-                    game.willing_hits += 1
-                    if game.willing_hits >= 3:
-                        game.ending_type = "existential"
-                        game.state = "ending"
-                        save_game(game.session_sins, game.willing_hits)
-                    else:
-                        game.peaceful = True
-                        game.peaceful_timer = 0
+                if game.sins >= 100 and f["special"] != "god":
+                    game.consecutive_slices += 1
+
+                if f["special"] == "god":
+                    game.ending_type = "peaceful"
+                    game.peaceful_ending = True
+                    game.state = "ending"
+                    save_game(game.session_sins)
                 elif f["special"] == "angel":
                     game.sins = max(0, game.sins + f["sin_val"])
                     game.mercy = 0
@@ -935,9 +879,9 @@ while True:
                     game.sins += f["sin_val"]
                     game.session_sins += f["sin_val"]
                     game.sin_shake_timer = 0.3
-                    # Trigger shame cooldown when crossing 100 sins
                     if prev_sins < 100 <= game.sins:
-                        game.shame_cooldown = 3.0
+                        game.ticker_text = "BREAKING: 100 sins. pause 5 sec for redemption — or slice 50 in a row for bloodlust."
+                        game.ticker_timer = 6.0
                     if f["name"] and f["name"] not in game.sliced_names:
                         game.sliced_names.append(f["name"])
                     game.floaters.append({"text": random.choice(LAST_WORDS), "x": f["x"], "y": f["y"], "t": 0})
@@ -948,7 +892,7 @@ while True:
                         game.graves.pop(0)
                     if game.sins >= 200 and not game.letter_shown:
                         game.letter_shown = True
-                        game.letter_timer = 15.0
+                        game.letter_timer = 5.0
 
                 # Show caption describing what the fruit does
                 desc_kind = f["kind"] if f["special"] is None else (f["special"] if f["special"] in FRUIT_DESCRIPTIONS else f["kind"])
@@ -960,11 +904,11 @@ while True:
     game.fruits = new_fruits
 
     # Check endings
-    if game.sins >= 300 and not game.addiction_ending:
-        game.addiction_ending = True
-        game.ending_type = "addiction"
+    if game.sins >= 300 and not game.extinction_ending:
+        game.extinction_ending = True
+        game.ending_type = "extinction"
         game.state = "ending"
-        save_game(game.session_sins, game.willing_hits)
+        save_game(game.session_sins)
         pygame.display.update()
         continue
 
@@ -972,17 +916,25 @@ while True:
         game.forgiveness_ending = True
         game.ending_type = "forgiveness"
         game.state = "ending"
-        save_game(game.session_sins, game.willing_hits)
+        save_game(game.session_sins)
         pygame.display.update()
         continue
 
-    if game.sins >= 100 and not game.shame_ending and not game.letter_shown:
-        still_flying = any(not f["hit"] and f["y"] <= HEIGHT for f in game.fruits)
-        if not still_flying:
-            game.shame_ending = True
-            game.ending_type = "shame"
+    if game.sins >= 100 and not game.redemption_ending and not game.letter_shown:
+        if game.time_since_slice >= 5.0:
+            game.redemption_ending = True
+            game.ending_type = "redemption"
             game.state = "ending"
-            save_game(game.session_sins, game.willing_hits)
+            save_game(game.session_sins)
+            pygame.display.update()
+            continue
+
+    if game.sins >= 100 and not game.bloodlust_ending:
+        if game.consecutive_slices >= 50:
+            game.bloodlust_ending = True
+            game.ending_type = "bloodlust"
+            game.state = "ending"
+            save_game(game.session_sins)
             pygame.display.update()
             continue
 
@@ -1008,7 +960,7 @@ while True:
     for f in game.fruits:
         draw_fruit_fn(render_surf, f)
         x, y = int(f["x"]), int(f["y"])
-        if not f["hit"] and f["name"] and f["special"] != "willing":
+        if not f["hit"] and f["name"] and f["special"] != "god":
             nr = font16.render(f["name"], True, tc)
             render_surf.blit(nr, (x + 30 - nr.get_width() // 2, y - 18))
         if not f["hit"] and f["speaks"]:
@@ -1086,35 +1038,10 @@ while True:
         combo_r = font40.render(f"RAMPAGE x{game.combo_count}!", True, (255, 50, 0))
         render_surf.blit(combo_r, (WIDTH // 2 - combo_r.get_width() // 2, HEIGHT // 2 - 100))
 
-    # Buddha
-    if game.sins >= 25 and game.buddha_state == 0:
-        game.buddha_state = 1
-    if game.sins >= 50 and game.buddha_state == 1:
-        game.buddha_state = 2
-    if game.sins >= 75 and game.buddha_state == 2 and not game.buddha_gone:
-        game.buddha_state = 3
-        game.buddha_walk_timer = 2.0
-    if game.buddha_state == 3:
-        game.buddha_walk_timer -= dt
-        game.buddha_x += (60 / 2.0) * dt
-        if game.buddha_walk_timer <= 0:
-            game.buddha_gone = True
-
-    draw_buddha_fn(render_surf, bg, game)
-
     # Witnesses
     while len(game.witnesses) < min(game.sins // 5, 20):
         game.witnesses.append({})
     draw_witnesses_fn(render_surf, bg, game)
-
-    # Mercy rewards
-    new_rewards = []
-    for mr in game.mercy_rewards:
-        mr.update(dt)
-        if mr.life > 0:
-            mr.draw(render_surf)
-            new_rewards.append(mr)
-    game.mercy_rewards = new_rewards
 
     # Vignette
     draw_vignette(render_surf, game.sins)
