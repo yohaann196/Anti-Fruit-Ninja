@@ -46,7 +46,6 @@ There is also a **mid-game event** (not a full ending): at 200 sins, you receive
 - You can go on bloody rampages and combo attacks, killing the innocent fruits.
 - Screen shake, vignette, and color shift as your sins pile up
 - Cursor trail turns red as you descend into fruit murder
-- Mercy milestones reward you with flowers, rainbows, and gratitude
 - Documentarians show up to film your crimes; lawyers serve you papers
 - Persistent guilt... lifetime sins are saved and shown on the title screen
 
