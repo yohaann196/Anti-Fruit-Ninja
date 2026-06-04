@@ -293,7 +293,10 @@ def draw_vignette(surface, intensity):
     if intensity <= 0:
         return
     alpha = min(int(intensity * 1.5), 180)
-    # Cache vignette by alpha value to avoid recreating every frame
+    # Quantize to buckets of 10 so the cache caps at ~18 entries instead of ~180.
+    alpha = ((alpha + 5) // 10) * 10
+    if alpha == 0:
+        return
     if alpha not in _vignette_cache:
         vig = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         for i in range(40):
@@ -829,6 +832,9 @@ while True:
             if dist < 30:
                 f["hit"] = True
                 game.time_since_slice = 0.0
+                # Capture sins before any additions this frame so the 100-sin
+                # ticker fires whether the crossing comes from combo or sin_val.
+                prev_sins = game.sins
                 # Sound effects
                 SFX_SLICE.play()
                 SFX_SPLAT.play()
@@ -875,7 +881,6 @@ while True:
                     game.ticker_text = "BREAKING: Local Player Identified. Footage at 11."
                     game.ticker_timer = 6.0
                 else:
-                    prev_sins = game.sins
                     game.sins += f["sin_val"]
                     game.session_sins += f["sin_val"]
                     game.sin_shake_timer = 0.3
